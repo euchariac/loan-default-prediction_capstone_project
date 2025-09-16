@@ -11,5 +11,8 @@ The final Gradient Boosting model was deployed as a decision-support tool, while
 3. Model Evaluation (Accuracy, Precision, Recall, F1-score, ROC-AUC)
 4. Deployment-ready Gradient Boosting model (hyperparameter tuned)
 5. Visualization (Python plots & Power BI dashboards)
+   
+<img width="1261" height="727" alt="Screenshot 2025-09-16 025103" src="https://github.com/user-attachments/assets/67ab4dac-d8d9-4d80-9d1e-3ed848262909" />
+
 
    
