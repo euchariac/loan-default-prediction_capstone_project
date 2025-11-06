@@ -6,3 +6,4 @@ joblib
 xgboost
 lightgbm
 python==3.10
+imbalanced-learn
