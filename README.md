@@ -76,6 +76,8 @@ Power BI	Loan risk reporting dashboard
 <img width="1150" height="568" alt="Screenshot 2025-09-16 084339" src="https://github.com/user-attachments/assets/7fcf855d-92f7-4a41-b3a2-15c8ef6ef77a" />
 <img width="1646" height="397" alt="Screenshot 2025-09-16 021403" src="https://github.com/user-attachments/assets/0599d3d9-6ef8-442b-aa57-7177c316cb66" />
 <img width="1140" height="309" alt="Screenshot 2025-09-16 023813" src="https://github.com/user-attachments/assets/8cee2251-a2e6-45af-9910-86c19bacbaef" />
+<img width="1200" height="710" alt="image" src="https://github.com/user-attachments/assets/0f757fef-1ea0-4253-ad9a-9719ea9fd6eb" />
+
 <img width="1208" height="494" alt="image" src="https://github.com/user-attachments/assets/45d7c51d-7b0c-4f67-a649-f586f1d7a753" />
 
 
