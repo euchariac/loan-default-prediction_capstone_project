@@ -41,10 +41,10 @@ Model	Purpose
 Logistic Regression	Baseline model
 Decision Tree	Simple tree model & interpretability
 Random Forest	Ensemble method for improved accuracy & feature importance
-LightGBM	Gradient boosting algorithm optimized for speed & performance
+LightGBM	Gradient boosting algorithm optimized for speed & performance (selected after evaluation)
 AdaBoost	Boosting model to improve weak learners
 XGBoost	Robust boosted trees, handles complex patterns well
-Gradient Boosting	Best-performing model (selected after evaluation & hyperparameter tuning)
+Gradient Boosting	Best-performing model 
 
 Evaluation Metrics
 
@@ -55,7 +55,7 @@ Precision
 Recall
 
 F1-Score
-Gradient Boosting achieved best performance with balanced accuracy & recall for default prediction.
+LightGBM achieved best performance with balanced accuracy & recall for default prediction.
 
 ## Deployment
 
