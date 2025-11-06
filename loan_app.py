@@ -1,40 +1,88 @@
 import streamlit as st
-import joblib
+import cloudpickle
 import pandas as pd
 import os
+import warnings
 from datetime import datetime
 
-#  Load Model & Helpers
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Suppress warnings
+warnings.filterwarnings('ignore')
 
-MODEL_PATH = os.path.join(BASE_DIR, "final_model_pipeline.pkl")
-KMEANS_PATH = os.path.join(BASE_DIR, "kmeans_location.pkl")
-CLUSTER_PATH = os.path.join(BASE_DIR, "cluster_states.pkl")
+# Initialize app
+st.set_page_config(page_title="Loan Prediction App", layout="wide")
 
-# Validate model files
-if not os.path.exists(MODEL_PATH):
-    st.error("❌ Model file not found! Please ensure 'final_model_pipeline.pkl' is in the same directory.")
-else:
-    model = joblib.load(MODEL_PATH)
-    kmeans = joblib.load(KMEANS_PATH)
-    cluster_states = joblib.load(CLUSTER_PATH)
+# Load models with detailed error reporting
+@st.cache_resource
+def load_models():
+    model_files = {
+        'model': 'final_model_pipeline.pkl',
+        'kmeans': 'kmeans_location.pkl', 
+        'cluster_states': 'cluster_states.pkl'
+    }
+    
+    loaded_models = {}
+    
+    for name, filename in model_files.items():
+        try:
+            if not os.path.exists(filename):
+                st.error(f"❌ File not found: {filename}")
+                return None, None, None
+                
+            with open(filename, 'rb') as f:
+                loaded_models[name] = cloudpickle.load(f)
+            st.success(f"✅ {name} loaded successfully")
+            
+        except Exception as e:
+            st.error(f"❌ Failed to load {name} from {filename}: {str(e)}")
+            return None, None, None
+    
+    return loaded_models['model'], loaded_models['kmeans'], loaded_models['cluster_states']
 
-st.title("🏦 Loan Default Prediction App")
-st.write("Predict the likelihood of loan default using customer demographics, loan history, and location data.")
+# Load models with progress indication
+st.write("🔄 Loading machine learning models...")
+model, kmeans, cluster_states = load_models()
 
-# HELPER FUNCTIONS #
+# Check if all models loaded successfully
+if model is None:
+    st.error("""
+    🚫 Failed to load one or more model files. Please ensure:
+    1. All .pkl files are in the same directory as this app
+    2. Files are named correctly:
+       - final_model_pipeline.pkl
+       - kmeans_location.pkl  
+       - cluster_states.pkl
+    3. Files are committed to your GitHub repository
+    """)
+    st.stop()
+
+# Verify each model is loaded correctly
+if kmeans is None:
+    st.error("KMeans model failed to load. The app cannot continue.")
+    st.stop()
+
+if cluster_states is None:
+    st.error("Cluster states failed to load. The app cannot continue.")
+    st.stop()
+
+st.success("🎉 All models loaded successfully! App is ready.")
+
+# Helper functions
 def calculate_age(birthdate, creationdate):
-    """Calculate age in years based on birthdate and loan creation date."""
     return creationdate.year - birthdate.year - (
         (creationdate.month, creationdate.day) < (birthdate.month, birthdate.day)
     )
 
-
-
 def get_bank_state(longitude, latitude):
-    """Predict cluster from GPS and map to bank state."""
-    cluster = kmeans.predict([[longitude, latitude]])[0]
-    return cluster_states.get(cluster, "Unknown")
+    try:
+        cluster = kmeans.predict([[longitude, latitude]])[0]
+        return cluster_states.get(cluster, "Unknown")
+    except Exception as e:
+        st.error(f"Error predicting bank state: {e}")
+        return "Unknown"
+
+# App title
+st.title("🏦 Loan Default Prediction App built by Eucharia")
+st.write("Predict the likelihood of loan default using customer demographics, loan history, and location data.")
 
 # APP MODE #
 mode = st.radio("Select Prediction Mode:", ["Single Prediction", "Batch Prediction"])
@@ -44,7 +92,6 @@ if mode == "Single Prediction":
     st.sidebar.header("Customer & Loan Inputs")
 
     customerid = st.sidebar.text_input("Customer ID")
-
     loannumber = st.sidebar.number_input("Loan Number", min_value=1, step=1)
     loanamount = st.sidebar.number_input("Loan Amount", min_value=0, step=1000)
     totaldue = st.sidebar.number_input("Total Due", min_value=0, step=1000)
@@ -55,33 +102,31 @@ if mode == "Single Prediction":
     )
     bank_name_clients = st.sidebar.selectbox(
         "Bank Name",
-        [
-            "GT Bank", "Sterling Bank", "Fidelity Bank", "Access Bank", "EcoBank",
-            "FCMB", "Skye Bank", "UBA", "Zenith Bank", "Diamond Bank", "First Bank",
-            "Union Bank", "Stanbic IBTC", "Standard Chartered", "Heritage Bank",
-            "Keystone Bank", "Unity Bank", "Wema Bank"
-        ]
+        ["GT Bank","Sterling Bank","Fidelity Bank","Access Bank","EcoBank",
+         "FCMB","Skye Bank","UBA","Zenith Bank","Diamond Bank","First Bank",
+         "Union Bank","Stanbic IBTC","Standard Chartered","Heritage Bank",
+         "Keystone Bank","Unity Bank","Wema Bank"]
     )
     employment_status_clients = st.sidebar.selectbox(
         "Employment Status",
-        ["Permanent", "Student", "Self-Employed", "Unemployed", "Retired", "Contract"]
+        ["Permanent","Student","Self-Employed","Unemployed","Retired","Contract"]
     )
 
-    # GPS inputs
     longitude = st.sidebar.number_input("Longitude (GPS)", value=0.0, format="%.6f")
     latitude = st.sidebar.number_input("Latitude (GPS)", value=0.0, format="%.6f")
 
-    # Dates
     birthdate = st.sidebar.date_input("Birthdate")
     creationdate = st.sidebar.date_input("Loan Creation Date")
 
-    # Derived features
+    # Calculate derived features
     age = calculate_age(birthdate, creationdate)
-
     bank_state = get_bank_state(longitude, latitude)
 
-    input_data = {
-        "customerid": customerid,
+    # Display derived features
+    st.sidebar.write(f"**Calculated Age:** {age}")
+    st.sidebar.write(f"**Predicted Bank State:** {bank_state}")
+
+    input_df = pd.DataFrame([{
         "loannumber": loannumber,
         "loanamount": loanamount,
         "totaldue": totaldue,
@@ -91,75 +136,112 @@ if mode == "Single Prediction":
         "employment_status_clients": employment_status_clients,
         "age": age,
         "bank_state": bank_state
-    }
-
-    input_df = pd.DataFrame([input_data])
-    st.write("### Processed Input Data", input_df)
+    }])
 
     if st.button("🔍 Predict"):
-        X_input = input_df.drop(columns=["customerid"])
-        pred = model.predict(X_input)[0]
-        proba = model.predict_proba(X_input)[0]
+        try:
+            pred = model.predict(input_df)[0]
+            proba = model.predict_proba(input_df)[0]
 
-        st.subheader("Prediction Result")
-        st.write("**Customer ID:**", customerid)
-        st.write("**Prediction:**", "✅ Good (No Default)" if pred == 1 else "⚠️ Bad (Default)")
-        st.write(f"**Probability of Default:** {proba[0]:.2f}")
-        st.write(f"**Probability of No Default:** {proba[1]:.2f}")
+            st.subheader("Prediction Results")
+            st.write("✅ **Good (No Default)**" if pred == 1 else "⚠️ **Bad (Default)**")
+            st.write(f"**Probability of Default:** {proba[0]:.2f}")
+            st.write(f"**Probability of No Default:** {proba[1]:.2f}")
+            
+            # Visualize probabilities
+            st.progress(proba[1])
+            st.write(f"Confidence: {max(proba):.1%}")
+            
+        except Exception as e:
+            st.error(f"Prediction failed: {e}")
 
-# ----------------- BATCH PREDICTION ----------------- #
+# BATCH PREDICTION #
 else:
-    st.subheader("📂 Batch Prediction")
-    st.write("Upload the **Demographics file** and **Performance file** separately. They will be merged on `customerid`.")
+    st.subheader("Batch Prediction")
+    st.write("Upload demographics and performance files (merged on `customerid`).")
 
-    demo_file = st.file_uploader("Upload Demographics File (CSV/XLSX)", type=["csv", "xlsx"], key="demo")
-    perf_file = st.file_uploader("Upload Performance File (CSV/XLSX)", type=["csv", "xlsx"], key="perf")
+    demo_file = st.file_uploader("Upload Demographics File", type=["csv", "xlsx"])
+    perf_file = st.file_uploader("Upload Performance File", type=["csv", "xlsx"])
 
     if demo_file and perf_file:
-        def load_file(f):
-            return pd.read_csv(f) if f.name.endswith(".csv") else pd.read_excel(f)
+        def load_file(f): 
+            if f.name.endswith(".csv"):
+                return pd.read_csv(f)
+            else:
+                return pd.read_excel(f)
 
-        demo_df = load_file(demo_file)
-        perf_df = load_file(perf_file)
+        try:
+            demo_df = load_file(demo_file)
+            perf_df = load_file(perf_file)
+            
+            # Check if customerid exists in both files
+            if 'customerid' not in demo_df.columns or 'customerid' not in perf_df.columns:
+                st.error("Error: 'customerid' column not found in one or both files.")
+            else:
+                df = pd.merge(demo_df, perf_df, on="customerid", how="inner")
+                
+                if df.empty:
+                    st.error("No matching records found. Check if customerid values match in both files.")
+                else:
+                    # Process dates
+                    df["birthdate"] = pd.to_datetime(df["birthdate"], errors="coerce")
+                    df["creationdate"] = pd.to_datetime(df["creationdate"], errors="coerce")
 
-        df = pd.merge(demo_df, perf_df, on="customerid", how="inner")
+                    # Calculate age
+                    df["age"] = df.apply(
+                        lambda r: calculate_age(r["birthdate"], r["creationdate"])
+                        if pd.notnull(r["birthdate"]) and pd.notnull(r["creationdate"]) else None,
+                        axis=1
+                    )
 
-        df["birthdate"] = pd.to_datetime(df["birthdate"], errors="coerce")
-        df["creationdate"] = pd.to_datetime(df["creationdate"], errors="coerce")
+                    # Get bank state
+                    df["bank_state"] = df.apply(
+                        lambda r: get_bank_state(r["longitude_gps"], r["latitude_gps"])
+                        if pd.notnull(r["longitude_gps"]) and pd.notnull(r["latitude_gps"]) else "Unknown",
+                        axis=1
+                    )
 
-        df["age"] = df.apply(
-            lambda row: calculate_age(row["birthdate"], row["creationdate"])
-            if pd.notnull(row["birthdate"]) and pd.notnull(row["creationdate"])
-            else None,
-            axis=1,
-        )
-        df["age_catagory"] = df["age"].apply(lambda x: assign_age_category(x) if pd.notnull(x) else None)
-        df["bank_state"] = df.apply(
-            lambda row: get_bank_state(row["longitude_gps"], row["latitude_gps"])
-            if pd.notnull(row["longitude_gps"]) and pd.notnull(row["latitude_gps"])
-            else "Unknown",
-            axis=1,
-        )
+                    expected_features = [
+                        "loannumber", "loanamount", "totaldue", "termdays",
+                        "bank_account_type", "bank_name_clients", "employment_status_clients",
+                        "age", "bank_state"
+                    ]
 
-        expected_features = [
-            "loannumber", "loanamount", "totaldue", "termdays",
-            "bank_account_type", "bank_name_clients", "employment_status_clients",
-            "age", "age_catagory", "bank_state"
-        ]
-        X = df.reindex(columns=expected_features, fill_value=0)
+                    # Check if all expected features are present
+                    missing_features = [f for f in expected_features if f not in df.columns]
+                    if missing_features:
+                        st.error(f"Missing required columns: {missing_features}")
+                    else:
+                        X = df[expected_features]
+                        
+                        try:
+                            preds = model.predict(X)
+                            probas = model.predict_proba(X)
 
-        preds = model.predict(X)
-        probas = model.predict_proba(X)
+                            df["prediction"] = ["Good" if p == 1 else "Default" for p in preds]
+                            df["prob_default"] = probas[:, 0]
+                            df["prob_no_default"] = probas[:, 1]
 
-        results = df.copy()
-        results["prediction"] = [" Good (No Default)" if p == 1 else "Bad (Default)" for p in preds]
-        results["prob_default"] = probas[:, 0]
-        results["prob_no_default"] = probas[:, 1]
-
-        st.write("### Sample Predictions", results[["customerid", "prediction", "prob_default", "prob_no_default"]].head())
-        st.download_button(
-            "⬇️ Download Full Results",
-            results.to_csv(index=False).encode("utf-8"),
-            "batch_predictions.csv",
-            "text/csv"
-        )
+                            st.subheader("Prediction Results")
+                            st.write(f"Processed {len(df)} records")
+                            
+                            # Show summary statistics
+                            good_loans = sum(preds == 1)
+                            default_loans = sum(preds == 0)
+                            st.write(f"✅ Good Loans: {good_loans}")
+                            st.write(f"⚠️ Default Loans: {default_loans}")
+                            st.write(f"📊 Default Rate: {default_loans/len(df):.1%}")
+                            
+                            st.write("Preview of results:")
+                            st.write(df.head())
+                            
+                            st.download_button(
+                                "⬇️ Download Predictions",
+                                df.to_csv(index=False).encode("utf-8"),
+                                "loan_predictions.csv",
+                                "text/csv"
+                            )
+                        except Exception as e:
+                            st.error(f"Batch prediction failed: {e}")
+        except Exception as e:
+            st.error(f"Error processing uploaded files: {e}")
