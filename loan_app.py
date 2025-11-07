@@ -25,46 +25,48 @@ def load_models():
     for name, filename in model_files.items():
         try:
             if not os.path.exists(filename):
-                st.error(f"❌ File not found: {filename}")
-                return None, None, None
-                
+                if name == 'model':  # Main model is required
+                    st.error(f"❌ Required file not found: {filename}")
+                    return None, None, None
+                else:  # KMeans files are optional
+                    st.warning(f"⚠️ Optional file not found: {filename}")
+                    loaded_models[name] = None
+                    continue
+                    
+            st.write(f"🔄 Loading {name} from {filename}...")
             with open(filename, 'rb') as f:
                 loaded_models[name] = cloudpickle.load(f)
             st.success(f"✅ {name} loaded successfully")
             
         except Exception as e:
-            st.error(f"❌ Failed to load {name} from {filename}: {str(e)}")
-            return None, None, None
+            if name == 'model':  # Main model is required
+                st.error(f"❌ Failed to load {name} from {filename}: {str(e)}")
+                return None, None, None
+            else:  # KMeans files are optional
+                st.warning(f"⚠️ Failed to load optional {name}: {str(e)}")
+                loaded_models[name] = None
     
-    return loaded_models['model'], loaded_models['kmeans'], loaded_models['cluster_states']
+    return loaded_models['model'], loaded_models.get('kmeans'), loaded_models.get('cluster_states')
 
 # Load models with progress indication
 st.write("🔄 Loading machine learning models...")
 model, kmeans, cluster_states = load_models()
 
-# Check if all models loaded successfully
+# Check if main model loaded successfully
 if model is None:
-    st.error("""
-    🚫 Failed to load one or more model files. Please ensure:
-    1. All .pkl files are in the same directory as this app
-    2. Files are named correctly:
-       - final_model_pipeline.pkl
-       - kmeans_location.pkl  
-       - cluster_states.pkl
-    3. Files are committed to your GitHub repository
+    st.error("🚫 Main model failed to load. The app cannot continue.")
+    st.stop()
+
+# Check if KMeans models loaded
+kmeans_available = kmeans is not None and cluster_states is not None
+if not kmeans_available:
+    st.warning("""
+    ⚠️ Location clustering models not available. 
+    The app will use default values for bank state.
+    You can still use the app for predictions!
     """)
-    st.stop()
 
-# Verify each model is loaded correctly
-if kmeans is None:
-    st.error("KMeans model failed to load. The app cannot continue.")
-    st.stop()
-
-if cluster_states is None:
-    st.error("Cluster states failed to load. The app cannot continue.")
-    st.stop()
-
-st.success("🎉 All models loaded successfully! App is ready.")
+st.success("🎉 Main model loaded successfully! App is ready.")
 
 # Helper functions
 def calculate_age(birthdate, creationdate):
@@ -73,12 +75,16 @@ def calculate_age(birthdate, creationdate):
     )
 
 def get_bank_state(longitude, latitude):
-    try:
-        cluster = kmeans.predict([[longitude, latitude]])[0]
-        return cluster_states.get(cluster, "Unknown")
-    except Exception as e:
-        st.error(f"Error predicting bank state: {e}")
-        return "Unknown"
+    if kmeans_available:
+        try:
+            cluster = kmeans.predict([[longitude, latitude]])[0]
+            return cluster_states.get(cluster, "Unknown")
+        except Exception as e:
+            st.error(f"Error predicting bank state: {e}")
+            return "Default_State"
+    else:
+        # Return a default state if KMeans is not available
+        return "Default_State"
 
 # App title
 st.title("🏦 Loan Default Prediction App built by Eucharia")
@@ -120,11 +126,16 @@ if mode == "Single Prediction":
 
     # Calculate derived features
     age = calculate_age(birthdate, creationdate)
-    bank_state = get_bank_state(longitude, latitude)
+    
+    # Only show bank state input if KMeans is available, otherwise use default
+    if kmeans_available:
+        bank_state = get_bank_state(longitude, latitude)
+        st.sidebar.write(f"**Predicted Bank State:** {bank_state}")
+    else:
+        bank_state = "Default_State"
+        st.sidebar.write("**Bank State:** Using default value (location clustering not available)")
 
-    # Display derived features
     st.sidebar.write(f"**Calculated Age:** {age}")
-    st.sidebar.write(f"**Predicted Bank State:** {bank_state}")
 
     input_df = pd.DataFrame([{
         "loannumber": loannumber,
@@ -159,6 +170,9 @@ if mode == "Single Prediction":
 else:
     st.subheader("Batch Prediction")
     st.write("Upload demographics and performance files (merged on `customerid`).")
+    
+    if not kmeans_available:
+        st.warning("⚠️ Location clustering not available. Using default bank states for batch processing.")
 
     demo_file = st.file_uploader("Upload Demographics File", type=["csv", "xlsx"])
     perf_file = st.file_uploader("Upload Performance File", type=["csv", "xlsx"])
@@ -194,12 +208,15 @@ else:
                         axis=1
                     )
 
-                    # Get bank state
-                    df["bank_state"] = df.apply(
-                        lambda r: get_bank_state(r["longitude_gps"], r["latitude_gps"])
-                        if pd.notnull(r["longitude_gps"]) and pd.notnull(r["latitude_gps"]) else "Unknown",
-                        axis=1
-                    )
+                    # Get bank state - use KMeans if available, otherwise default
+                    if kmeans_available:
+                        df["bank_state"] = df.apply(
+                            lambda r: get_bank_state(r["longitude_gps"], r["latitude_gps"])
+                            if pd.notnull(r["longitude_gps"]) and pd.notnull(r["latitude_gps"]) else "Unknown",
+                            axis=1
+                        )
+                    else:
+                        df["bank_state"] = "Default_State"
 
                     expected_features = [
                         "loannumber", "loanamount", "totaldue", "termdays",
