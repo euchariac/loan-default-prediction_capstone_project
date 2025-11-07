@@ -7,7 +7,7 @@ The final Gradient Boosting model was deployed as a decision-support tool, while
 
 Live Demo
 Platform	Link
-🔗 Deployed Streamlit App	(http://localhost:8501/)
+🔗 Deployed Streamlit App	(http://localhost:8501/](https://loanpredictionmodelbyeucharia.streamlit.app/)
 
  GitHub Repository	https://github.com/euchariac/loan-default-prediction_capstone_project
 
@@ -78,6 +78,8 @@ Power BI	Loan risk reporting dashboard
 <img width="1646" height="397" alt="Screenshot 2025-09-16 021403" src="https://github.com/user-attachments/assets/0599d3d9-6ef8-442b-aa57-7177c316cb66" />
 <img width="1140" height="309" alt="Screenshot 2025-09-16 023813" src="https://github.com/user-attachments/assets/8cee2251-a2e6-45af-9910-86c19bacbaef" />
 <img width="1200" height="710" alt="image" src="https://github.com/user-attachments/assets/0f757fef-1ea0-4253-ad9a-9719ea9fd6eb" />
+<img width="582" height="583" alt="image" src="https://github.com/user-attachments/assets/b3e11b2f-6598-418a-8ce0-dd98f61821cc" />
+
 
 <img width="1208" height="494" alt="image" src="https://github.com/user-attachments/assets/45d7c51d-7b0c-4f67-a649-f586f1d7a753" />
 
