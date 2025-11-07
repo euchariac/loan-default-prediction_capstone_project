@@ -197,6 +197,9 @@ else:
                 if df.empty:
                     st.error("No matching records found. Check if customerid values match in both files.")
                 else:
+                    # Create a copy of the original data for display
+                    original_df = df.copy()
+                    
                     # Process dates
                     df["birthdate"] = pd.to_datetime(df["birthdate"], errors="coerce")
                     df["creationdate"] = pd.to_datetime(df["creationdate"], errors="coerce")
@@ -204,7 +207,7 @@ else:
                     # Calculate age
                     df["age"] = df.apply(
                         lambda r: calculate_age(r["birthdate"], r["creationdate"])
-                        if pd.notnull(r["birthdate"]) and pd.notnull(r["creationdate"]) else None,
+                        if pd.notnull(r["birthdate"]) and pd.notnull(r["creationdate"]) else 30,  # Default age
                         axis=1
                     )
 
@@ -229,36 +232,54 @@ else:
                     if missing_features:
                         st.error(f"Missing required columns: {missing_features}")
                     else:
+                        # Select only the expected features
                         X = df[expected_features]
                         
+                        # Debug: Show data types before prediction
+                        st.write("📊 Data types before prediction:")
+                        st.write(X.dtypes)
+                        
                         try:
-                            preds = model.predict(X)
-                            probas = model.predict_proba(X)
-
-                            df["prediction"] = ["Good" if p == 1 else "Default" for p in preds]
-                            df["prob_default"] = probas[:, 0]
-                            df["prob_no_default"] = probas[:, 1]
+                            # Use the model's preprocessing (if it's a pipeline)
+                            if hasattr(model, 'predict'):
+                                # If model is a pipeline, it will handle preprocessing automatically
+                                preds = model.predict(X)
+                                probas = model.predict_proba(X)
+                            else:
+                                st.error("Model doesn't have predict method")
+                                preds = []
+                                probas = []
+                            
+                            # Add predictions to the ORIGINAL dataframe (not the processed one)
+                            original_df["prediction"] = ["Good" if p == 1 else "Default" for p in preds]
+                            original_df["prob_default"] = probas[:, 0]
+                            original_df["prob_no_default"] = probas[:, 1]
 
                             st.subheader("Prediction Results")
-                            st.write(f"Processed {len(df)} records")
+                            st.write(f"Processed {len(original_df)} records")
                             
                             # Show summary statistics
                             good_loans = sum(preds == 1)
                             default_loans = sum(preds == 0)
                             st.write(f"✅ Good Loans: {good_loans}")
                             st.write(f"⚠️ Default Loans: {default_loans}")
-                            st.write(f"📊 Default Rate: {default_loans/len(df):.1%}")
+                            st.write(f"📊 Default Rate: {default_loans/len(original_df):.1%}")
                             
                             st.write("Preview of results:")
-                            st.write(df.head())
+                            st.write(original_df.head())
                             
                             st.download_button(
                                 "⬇️ Download Predictions",
-                                df.to_csv(index=False).encode("utf-8"),
+                                original_df.to_csv(index=False).encode("utf-8"),
                                 "loan_predictions.csv",
                                 "text/csv"
                             )
                         except Exception as e:
                             st.error(f"Batch prediction failed: {e}")
+                            st.write("This usually happens when the input data doesn't match the model's expected format.")
+                            st.write("**Troubleshooting tips:**")
+                            st.write("1. Ensure categorical values match what the model was trained on")
+                            st.write("2. Check that all columns have the correct data types")
+                            st.write("3. Verify that your model pipeline includes preprocessing steps")
         except Exception as e:
             st.error(f"Error processing uploaded files: {e}")
