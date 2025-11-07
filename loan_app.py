@@ -33,47 +33,47 @@ def load_models():
         try:
             if not os.path.exists(filename):
                 if name == 'model':  # Main model is required
-                    st.error(f"❌ Required file not found: {filename}")
+                    st.error(f" Required file not found: {filename}")
                     return None, None, None
                 else:  # KMeans files are optional
                     st.warning(f"⚠️ Optional file not found: {filename}")
                     loaded_models[name] = None
                     continue
                     
-            st.write(f"🔄 Loading {name} from {filename}...")
+            st.write(f" Loading {name} from {filename}...")
             with open(filename, 'rb') as f:
                 loaded_models[name] = cloudpickle.load(f)
-            st.success(f"✅ {name} loaded successfully")
+            st.success(f" {name} loaded successfully")
             
         except Exception as e:
             if name == 'model':  # Main model is required
-                st.error(f"❌ Failed to load {name} from {filename}: {str(e)}")
+                st.error(f" Failed to load {name} from {filename}: {str(e)}")
                 return None, None, None
             else:  # KMeans files are optional
-                st.warning(f"⚠️ Failed to load optional {name}: {str(e)}")
+                st.warning(f" Failed to load optional {name}: {str(e)}")
                 loaded_models[name] = None
     
     return loaded_models['model'], loaded_models.get('kmeans'), loaded_models.get('cluster_states')
 
 # Load models with progress indication
-st.write("🔄 Loading machine learning models...")
+st.write(" Loading machine learning models...")
 model, kmeans, cluster_states = load_models()
 
 # Check if main model loaded successfully
 if model is None:
-    st.error("🚫 Main model failed to load. The app cannot continue.")
+    st.error(" Main model failed to load. The app cannot continue.")
     st.stop()
 
 # Check if KMeans models loaded
 kmeans_available = kmeans is not None and cluster_states is not None
 if not kmeans_available:
     st.warning("""
-    ⚠️ Location clustering models not available. 
+     Location clustering models not available. 
     The app will use default values for bank state.
     You can still use the app for predictions!
     """)
 
-st.success("🎉 Main model loaded successfully! App is ready.")
+st.success(" Main model loaded successfully! App is ready.")
 
 # Helper functions
 def calculate_age(birthdate, creationdate):
@@ -149,13 +149,13 @@ if mode == "Single Prediction":
         "bank_state": bank_state
     }])
 
-    if st.button("🔍 Predict"):
+    if st.button(" Predict"):
         try:
             pred = model.predict(input_df)[0]
             proba = model.predict_proba(input_df)[0]
 
             st.subheader("Prediction Results")
-            st.write("✅ **Good (No Default)**" if pred == 1 else "⚠️ **Bad (Default)**")
+            st.write(" **Good (No Default)**" if pred == 1 else " **Bad (Default)**")
             st.write(f"**Probability of Default:** {proba[0]:.2f}")
             st.write(f"**Probability of No Default:** {proba[1]:.2f}")
             
@@ -172,7 +172,7 @@ else:
     st.write("Upload demographics and performance files (merged on `customerid`).")
     
     if not kmeans_available:
-        st.warning("⚠️ Location clustering not available. Using default bank states for batch processing.")
+        st.warning(" Location clustering not available. Using default bank states for batch processing.")
 
     demo_file = st.file_uploader("Upload Demographics File", type=["csv", "xlsx"])
     perf_file = st.file_uploader("Upload Performance File", type=["csv", "xlsx"])
@@ -236,7 +236,7 @@ else:
                         X = df[expected_features]
                         
                         # MANUAL CATEGORICAL ENCODING
-                        st.write("🔄 Preprocessing categorical variables...")
+                        st.write(" Preprocessing categorical variables...")
                         
                         # Define expected categories
                         expected_categories = {
@@ -273,9 +273,9 @@ else:
                             if col in X_encoded.columns:
                                 X_encoded[col] = pd.to_numeric(X_encoded[col], errors='coerce').fillna(0)
                         
-                        st.write("✅ Preprocessing completed")
-                        st.write("📊 Processed data shape:", X_encoded.shape)
-                        st.write("🔍 Processed data types:")
+                        st.write(" Preprocessing completed")
+                        st.write(" Processed data shape:", X_encoded.shape)
+                        st.write(" Processed data types:")
                         st.write(X_encoded.dtypes)
                         
                         try:
@@ -288,28 +288,28 @@ else:
                             original_df["prob_default"] = probas[:, 0]
                             original_df["prob_no_default"] = probas[:, 1]
 
-                            st.subheader("🎯 Prediction Results")
+                            st.subheader(" Prediction Results")
                             st.write(f"Processed {len(original_df)} records")
                             
                             # Show summary statistics
                             good_loans = sum(preds == 1)
                             default_loans = sum(preds == 0)
-                            st.write(f"✅ Good Loans: {good_loans}")
-                            st.write(f"⚠️ Default Loans: {default_loans}")
-                            st.write(f"📊 Default Rate: {default_loans/len(original_df):.1%}")
+                            st.write(f" Good Loans: {good_loans}")
+                            st.write(f" Default Loans: {default_loans}")
+                            st.write(f" Default Rate: {default_loans/len(original_df):.1%}")
                             
                             st.write("Preview of results:")
                             st.write(original_df.head())
                             
                             st.download_button(
-                                "⬇️ Download Predictions",
+                                " Download Predictions",
                                 original_df.to_csv(index=False).encode("utf-8"),
                                 "loan_predictions.csv",
                                 "text/csv"
                             )
                             
                         except Exception as e:
-                            st.error(f"❌ Batch prediction failed: {e}")
+                            st.error(f" Batch prediction failed: {e}")
                             st.write("**Debug Information:**")
                             st.write(f"Processed data columns: {list(X_encoded.columns)}")
                             st.write(f"Processed data shape: {X_encoded.shape}")
