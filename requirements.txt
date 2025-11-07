@@ -7,3 +7,4 @@ xgboost==3.0.2
 joblib>=1.2.0
 geopy>=2.3.0
 cloudpickle>=2.2.0
+lightgbm>=4.0.0  # Add this line
