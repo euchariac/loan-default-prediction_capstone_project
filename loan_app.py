@@ -11,6 +11,13 @@ warnings.filterwarnings('ignore')
 # Initialize app
 st.set_page_config(page_title="Loan Prediction App", layout="wide")
 
+
+# App title
+st.title("🏦 Loan Default Prediction App built by Eucharia")
+st.write("Predict the likelihood of loan default using customer demographics, loan history, and location data.")
+
+# APP MODE #
+mode = st.radio("Select Prediction Mode:", ["Single Prediction", "Batch Prediction"])
 # Load models with detailed error reporting
 @st.cache_resource
 def load_models():
@@ -85,13 +92,6 @@ def get_bank_state(longitude, latitude):
     else:
         # Return a default state if KMeans is not available
         return "Default_State"
-
-# App title
-st.title("🏦 Loan Default Prediction App built by Eucharia")
-st.write("Predict the likelihood of loan default using customer demographics, loan history, and location data.")
-
-# APP MODE #
-mode = st.radio("Select Prediction Mode:", ["Single Prediction", "Batch Prediction"])
 
 # SINGLE PREDICTION #
 if mode == "Single Prediction":
