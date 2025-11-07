@@ -207,11 +207,11 @@ else:
                     # Calculate age
                     df["age"] = df.apply(
                         lambda r: calculate_age(r["birthdate"], r["creationdate"])
-                        if pd.notnull(r["birthdate"]) and pd.notnull(r["creationdate"]) else 30,  # Default age
+                        if pd.notnull(r["birthdate"]) and pd.notnull(r["creationdate"]) else 30,
                         axis=1
                     )
 
-                    # Get bank state - use KMeans if available, otherwise default
+                    # Get bank state
                     if kmeans_available:
                         df["bank_state"] = df.apply(
                             lambda r: get_bank_state(r["longitude_gps"], r["latitude_gps"])
@@ -235,27 +235,60 @@ else:
                         # Select only the expected features
                         X = df[expected_features]
                         
-                        # Debug: Show data types before prediction
-                        st.write("📊 Data types before prediction:")
-                        st.write(X.dtypes)
+                        # MANUAL CATEGORICAL ENCODING
+                        st.write("🔄 Preprocessing categorical variables...")
+                        
+                        # Define expected categories
+                        expected_categories = {
+                            'bank_account_type': ['Savings', 'Current', 'Fixed Deposit', 'Other'],
+                            'bank_name_clients': ['GT Bank', 'Sterling Bank', 'Fidelity Bank', 'Access Bank', 'EcoBank',
+                                                 'FCMB', 'Skye Bank', 'UBA', 'Zenith Bank', 'Diamond Bank', 'First Bank',
+                                                 'Union Bank', 'Stanbic IBTC', 'Standard Chartered', 'Heritage Bank',
+                                                 'Keystone Bank', 'Unity Bank', 'Wema Bank'],
+                            'employment_status_clients': ['Permanent', 'Student', 'Self-Employed', 'Unemployed', 'Retired', 'Contract'],
+                            'bank_state': ['Lagos', 'Abuja', 'Port Harcourt', 'Kano', 'Ibadan', 'Default_State', 'Unknown', 'South-West', 'North-Central', 'South-South', 'North-West', 'South-East', 'North-East']
+                        }
+                        
+                        # One-hot encode categorical variables manually
+                        X_encoded = X.copy()
+                        
+                        for categorical_col in ['bank_account_type', 'bank_name_clients', 'employment_status_clients', 'bank_state']:
+                            if categorical_col in X_encoded.columns:
+                                # Get unique values in current data
+                                unique_vals = X_encoded[categorical_col].unique()
+                                st.write(f"Found {len(unique_vals)} unique values in {categorical_col}: {list(unique_vals)}")
+                                
+                                # Create dummy variables
+                                dummies = pd.get_dummies(X_encoded[categorical_col], prefix=categorical_col)
+                                
+                                # Add dummy variables to dataframe
+                                X_encoded = pd.concat([X_encoded, dummies], axis=1)
+                                
+                                # Remove original categorical column
+                                X_encoded = X_encoded.drop(categorical_col, axis=1)
+                        
+                        # Ensure numerical columns are the correct type
+                        numerical_cols = ['loannumber', 'loanamount', 'totaldue', 'termdays', 'age']
+                        for col in numerical_cols:
+                            if col in X_encoded.columns:
+                                X_encoded[col] = pd.to_numeric(X_encoded[col], errors='coerce').fillna(0)
+                        
+                        st.write("✅ Preprocessing completed")
+                        st.write("📊 Processed data shape:", X_encoded.shape)
+                        st.write("🔍 Processed data types:")
+                        st.write(X_encoded.dtypes)
                         
                         try:
-                            # Use the model's preprocessing (if it's a pipeline)
-                            if hasattr(model, 'predict'):
-                                # If model is a pipeline, it will handle preprocessing automatically
-                                preds = model.predict(X)
-                                probas = model.predict_proba(X)
-                            else:
-                                st.error("Model doesn't have predict method")
-                                preds = []
-                                probas = []
-                            
-                            # Add predictions to the ORIGINAL dataframe (not the processed one)
+                            # Make predictions
+                            preds = model.predict(X_encoded)
+                            probas = model.predict_proba(X_encoded)
+
+                            # Add predictions to the ORIGINAL dataframe
                             original_df["prediction"] = ["Good" if p == 1 else "Default" for p in preds]
                             original_df["prob_default"] = probas[:, 0]
                             original_df["prob_no_default"] = probas[:, 1]
 
-                            st.subheader("Prediction Results")
+                            st.subheader("🎯 Prediction Results")
                             st.write(f"Processed {len(original_df)} records")
                             
                             # Show summary statistics
@@ -274,12 +307,14 @@ else:
                                 "loan_predictions.csv",
                                 "text/csv"
                             )
+                            
                         except Exception as e:
-                            st.error(f"Batch prediction failed: {e}")
-                            st.write("This usually happens when the input data doesn't match the model's expected format.")
-                            st.write("**Troubleshooting tips:**")
-                            st.write("1. Ensure categorical values match what the model was trained on")
-                            st.write("2. Check that all columns have the correct data types")
-                            st.write("3. Verify that your model pipeline includes preprocessing steps")
+                            st.error(f"❌ Batch prediction failed: {e}")
+                            st.write("**Debug Information:**")
+                            st.write(f"Processed data columns: {list(X_encoded.columns)}")
+                            st.write(f"Processed data shape: {X_encoded.shape}")
+                            st.write(f"Sample of processed data:")
+                            st.write(X_encoded.head())
+                            
         except Exception as e:
             st.error(f"Error processing uploaded files: {e}")
